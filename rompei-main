@@ -15,9 +15,13 @@ from vex import *
 IDLE = 0
 DRIVING_FWD = 1
 DRIVING_BKWD = 2
-
+#reflectivity states
+OUTOFRANGE = 0
+ENTERRANGE = 1
+EXITRANGE = 2
 # start out in the idle state
 current_state = IDLE
+range_state = OUTOFRANGE
 
 # Define the brain
 brain=Brain()
@@ -32,7 +36,7 @@ controller = Controller()
 front_bumper = Bumper(brain.three_wire_port.a)
 
 # Reflectance
-## TODO: Declare the reflectance sensor here
+line_tracker = Line(brain.three_wire_port.b)
 # Rangefinder
 ## TODO: Declare the ultrasonic rangefinder here
 """
@@ -70,7 +74,7 @@ def checkBumperG():
     if(currButton and not prevButton):
         retVal = True
     prevButton = currButton
-    return retVal
+    return False
 
 #def handleBumperG():
     #global current_state
@@ -97,8 +101,8 @@ def handleMotionComplete():
     if(current_state == DRIVING_FWD):
         print('FORWARD -> BACKWARD')
         current_state = DRIVING_BKWD
-        left_motor.spin_for(REVERSE, t, TURNS, s, RPM, wait = False)
-        right_motor.spin_for(REVERSE, t, TURNS, s, RPM, wait = False)
+        left_motor.spin_for(REVERSE, 0, TURNS, s, RPM, wait = False)
+        right_motor.spin_for(REVERSE, 0, TURNS, s, RPM, wait = False)
     elif(current_state == DRIVING_BKWD):
         print('BACKWARD -> IDLE')
         current_state = IDLE
@@ -106,6 +110,40 @@ def handleMotionComplete():
         print('E-stop') # Should print when button is used as E-stop
 
 ## TODO: Add a checker for the reflectance sensor
+
+def inRange():
+    retVal = False
+    position = float(line_tracker.reflectivity.replace("%",""))
+    if position < 70:
+        retval = True
+    return retval
+
+wasInRange = False
+def checkNearReflector():
+    global wasInRange
+    retval = OUTOFRANGE 
+    isInRange = inRange
+    if(not wasInRange and isInRange):
+        retval = ENTERRANGE 
+    elif(wasInRange and not inRange):
+        retval = EXITRANGE 
+    return retval
+
+def handleNearReflector():
+    global range_state
+    global current_state
+    if(range_state == ENTERRANGE):
+        current_state = DRIVING_BKWD
+        left_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
+        right_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
+    elif(range_state == EXITRANGE):
+        current_state = IDLE
+        left_motor.stop()
+        right_motor.stop()
+    else:
+        pass
+
+
 ## See checkMotionComplete() for a good example
 ## TODO: Add a handler for when the reflectance sensor triggers
 """
@@ -127,4 +165,7 @@ the VEX event system.
 # The main loop
 while True:
     if(checkMotionComplete()): handleMotionComplete()
+    checkNearReflector()  
+    handleNearReflector()  
+
 ## TODO: Add various checkers/handlers; print ultrasonice; etc. See handout.
