@@ -74,7 +74,7 @@ def checkBumperG():
     if(currButton and not prevButton):
         retVal = True
     prevButton = currButton
-    return False
+    return retVal
 
 #def handleBumperG():
     #global current_state
@@ -101,8 +101,8 @@ def handleMotionComplete():
     if(current_state == DRIVING_FWD):
         print('FORWARD -> BACKWARD')
         current_state = DRIVING_BKWD
-        left_motor.spin_for(REVERSE, 0, TURNS, s, RPM, wait = False)
-        right_motor.spin_for(REVERSE, 0, TURNS, s, RPM, wait = False)
+        left_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
+        right_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
     elif(current_state == DRIVING_BKWD):
         print('BACKWARD -> IDLE')
         current_state = IDLE
@@ -121,13 +121,15 @@ def inRange():
 wasInRange = False
 def checkNearReflector():
     global wasInRange
-    retval = OUTOFRANGE 
+    global range_state
+    range_state = OUTOFRANGE
     isInRange = inRange
     if(not wasInRange and isInRange):
-        retval = ENTERRANGE 
+        range_state = ENTERRANGE 
     elif(wasInRange and not inRange):
-        retval = EXITRANGE 
-    return retval
+        range_state = EXITRANGE
+    else:
+        pass
 
 def handleNearReflector():
     global range_state
