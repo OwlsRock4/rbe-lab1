@@ -37,8 +37,9 @@ front_bumper = Bumper(brain.three_wire_port.a)
 
 # Reflectance
 line_tracker = Line(brain.three_wire_port.b)
+
 # Rangefinder
-## TODO: Declare the ultrasonic rangefinder here
+range_finder = Sonar(brain.three_wire_port.c)
 """
 Pro-tip: print out state _transistions_.
 """
@@ -76,13 +77,6 @@ def checkBumperG():
     prevButton = currButton
     return retVal
 
-#def handleBumperG():
-    #global current_state
-    #if(current_state == (DRIVING_FWD or IDLE)):
-        #current_state = DRIVING_BKWD
-        #right_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
-        #left_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
-
 # Here, we give an example of a proper event checker. It checks for the _event_
 # of stopping (not just if the robot is stopped).
 wasMoving = False
@@ -108,8 +102,6 @@ def handleMotionComplete():
         current_state = IDLE
     else:
         print('E-stop') # Should print when button is used as E-stop
-
-## TODO: Add a checker for the reflectance sensor
 
 def inRange():
     retVal = False
@@ -144,10 +136,13 @@ def handleNearReflector():
         right_motor.stop()
     else:
         pass
-
+def printDistance():
+    d = range_finder.distance(MM)
+    brain.screen.print(d)
+    brain.screen.next_row()
+    wait(20, TimeUnits.MSEC)
 
 ## See checkMotionComplete() for a good example
-## TODO: Add a handler for when the reflectance sensor triggers
 """
 The line below makes use of VEX's built-in event management. Basically, we set up a
 "callback",
@@ -158,7 +153,6 @@ get called,
 _without you having to do anything else_.
 """
 controller.buttonL1.pressed(handleLeft1Button)
-#front_bumper.pressed(handleBumperG)
 """
 Note that the main loop only checks for the completed motion. The button press is
 handled by
@@ -169,5 +163,4 @@ while True:
     if (checkMotionComplete()): handleMotionComplete()
     checkNearReflector()  
     handleNearReflector()  
-
-## TODO: Add various checkers/handlers; print ultrasonice; etc. See handout.
+    printDistance()
