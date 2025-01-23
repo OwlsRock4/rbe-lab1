@@ -1,0 +1,153 @@
+# A basic example of commanding the robot to drive forward and backward with the press of a button.
+
+# Library imports
+from vex import *
+
+# define the states
+IDLE = 0
+DRIVING_FWD = 1
+DRIVING_BKWD = 2
+
+# start out in the idle state
+current_state = IDLE
+
+# Define the brain
+brain=Brain()
+
+# Motors
+left_motor = Motor(Ports.PORT1, GearSetting.RATIO_18_1, True)
+right_motor = Motor(Ports.PORT10, GearSetting.RATIO_18_1, False)
+arm = Motor(Ports.PORT8,GearSetting.RATIO_18_1, False)
+
+# Controller
+controller = Controller()
+
+# Reflectance
+reflectance = Line(brain.three_wire_port.b)
+
+# Distance in cm
+distance = 100
+# Speed in cm
+speed = 10
+c = math.pi * 2 * 5
+t = 5 * distance / c 
+s = (60 * speed * 5) / c
+
+startAngle = 420.0
+endAngle = 560.0
+
+pressed = False
+def handleLeft1Button():
+    global current_state
+    global pressed
+    pressed = True
+
+    if(current_state == IDLE):
+        print('IDLE -> FORWARD')
+        current_state = DRIVING_FWD
+        arm.set_position(0,DEGREES)
+        arm.spin_for(FORWARD,startAngle,DEGREES,s,RPM, wait = True)
+        left_motor.spin_for(FORWARD, t, TURNS, s, RPM, wait = False)
+        right_motor.spin_for(FORWARD, t, TURNS, s, RPM, wait = False)
+
+    else: # in any other state, the button acts as a kill switch
+        print(' -> IDLE')
+        current_state = IDLE
+        left_motor.stop()
+        right_motor.stop()
+
+
+# Here, we give an example of a proper event checker. It checks for the _event_ 
+# of stopping (not just if the robot is stopped).
+wasMoving = False
+def checkMotionComplete():
+    global wasMoving
+
+    retVal = False
+
+    isMoving = left_motor.is_spinning() or right_motor.is_spinning()
+
+    if(wasMoving and not isMoving):
+        retVal = True
+
+    wasMoving = isMoving
+    return retVal
+
+def handleMotionComplete():
+    global current_state
+
+    if(current_state == DRIVING_FWD):
+        print('FORWARD -> BACKWARD')
+        current_state = DRIVING_BKWD
+    
+    elif(current_state == DRIVING_BKWD):
+        print('BACKWARD -> IDLE')
+        current_state = IDLE
+
+    else:
+        print('E-stop') # Should print when button is used as E-stop
+
+
+wasReflecting = False
+def checkReflectance():
+    global wasReflecting
+    global pressed
+    retVal = False
+    isReflecting = (100 < reflectance.value() < 2880)
+    if (isReflecting and not wasReflecting and pressed == True):
+        retVal = True
+    wasReflecting = isReflecting
+    return retVal
+backup = False
+def handleReflectance():
+    global current_state
+    global backup
+    print(current_state)
+    if(current_state == DRIVING_FWD):
+        print('FORWARD -> ARM MOVING')
+        current_state = IDLE
+        left_motor.spin_for(REVERSE, t/6, TURNS, s, RPM, wait = False)
+        right_motor.spin_for(REVERSE, t/6, TURNS, s, RPM, wait = False)
+    elif(current_state == DRIVING_BKWD):
+        print('BACKWARD -> IDLE')
+        current_state = IDLE
+    elif(current_state == IDLE):
+        print('IDLE -> BACKWARD')
+        current_state = DRIVING_BKWD
+        left_motor.spin_for(REVERSE, t, TURNS, s, RPM, wait = False)
+        right_motor.spin_for(REVERSE, t, TURNS, s, RPM, wait = False) 
+    else:
+        print('Reflectance Sensor not sensing')       
+    backup = True
+
+def checkAndHandleRotating():
+    global current_state
+    global backup
+    global pressed
+    if (backup == True) and (pressed == True):
+        left_motor.spin_for(FORWARD, 2445, DEGREES, s, RPM, wait = False)
+        right_motor.spin_for(REVERSE, 2445, DEGREES, s, RPM, wait = True)
+        left_motor.spin_for(REVERSE, t/5.75, TURNS, s, RPM, wait = False)
+        right_motor.spin_for(REVERSE, t/5.75, TURNS, s, RPM, wait = True)
+        arm.spin_for(FORWARD, endAngle-startAngle, DEGREES, s, RPM, wait = False)
+        previousT = 0
+        while True: 
+            if(arm.torque() > previousT):
+                brain.screen.print(arm.torque())
+                brain.screen.new_line()
+            else:
+                brain.screen.print(previousT)
+                brain.screen.new_line()
+                previousT = arm.torque()
+                wait(50)        
+
+
+controller.buttonL1.pressed(handleLeft1Button)
+
+# The main loop
+while True:
+    if(checkMotionComplete()): handleMotionComplete()
+    if(checkReflectance()):
+        handleReflectance()
+        checkAndHandleRotating()
+    
