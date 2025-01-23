@@ -1,13 +1,5 @@
-# ---------------------------------------------------------------------------- #
-#                                                                              #
-# 	Module:       main.py                                                      #
-# 	Author:       slafl                                                        #
-# 	Created:      1/17/2025, 5:02:42 PM                                        #
-# 	Description:  V5 project                                                   #
-#                                                                              #
-# ---------------------------------------------------------------------------- #
-
 # A basic example of commanding the robot to drive forward and backward with the press of a button.
+
 # Library imports
 from vex import *
 
@@ -15,159 +7,180 @@ from vex import *
 IDLE = 0
 DRIVING_FWD = 1
 DRIVING_BKWD = 2
-#reflectivity states
-OUTOFRANGE = 0
-ENTERRANGE = 1
-EXITRANGE = 2
+
 # start out in the idle state
 current_state = IDLE
-range_state = OUTOFRANGE
 
 # Define the brain
 brain=Brain()
 
 # Motors
-left_motor = Motor(Ports.PORT1, GearSetting.RATIO_18_1, True)
-right_motor = Motor(Ports.PORT10, GearSetting.RATIO_18_1, False)
+left_motor = Motor(Ports.PORT1, GearSetting.RATIO_18_1, False)
+right_motor = Motor(Ports.PORT10, GearSetting.RATIO_18_1, True)
+arm = Motor(Ports.PORT8,GearSetting.RATIO_18_1, False)
 
 # Controller
 controller = Controller()
+
 # Bumper
-front_bumper = Bumper(brain.three_wire_port.a)
+bumper = Bumper(brain.three_wire_port.a)
 
 # Reflectance
-line_tracker = Line(brain.three_wire_port.b)
+reflectance = Line(brain.three_wire_port.b)
+
 # Rangefinder
-## TODO: Declare the ultrasonic rangefinder here
-"""
-Pro-tip: print out state _transistions_.
-"""
+rangefinder = Sonar(brain.three_wire_port.c)
+
 c = math.pi * 2 * 5
 t = 500 / c 
 s = (60 * 10 * 5) / c
 
+"""
+Pro-tip: print out state _transistions_.
+"""
+pressed = False
 def handleLeft1Button():
     global current_state
+    global pressed
+    pressed = True
+
     if(current_state == IDLE):
         print('IDLE -> FORWARD')
         current_state = DRIVING_FWD
-        # Note how we set the motor to drive here, just once.
+
+        # Note how we set the motor to drive here, just once. 
         # No need to call over and over and over in a loop.
         # Also, note that we call the non-blocking version so we can
         # return to the main loop.
-        left_motor.spin_for(FORWARD, t, TURNS, s, RPM, wait = False)
-        right_motor.spin_for(FORWARD, t, TURNS, s, RPM, wait = False)
+
+        ## TODO: You'll need to update the speed and number of turns
+        left_motor.spin_for(REVERSE, t, TURNS, s, RPM, wait = False)
+        right_motor.spin_for(REVERSE, t, TURNS, s, RPM, wait = False)
+
     else: # in any other state, the button acts as a kill switch
         print(' -> IDLE')
         current_state = IDLE
         left_motor.stop()
         right_motor.stop()
+
 """
 Pro-tip: print out state _transistions_.
-""" 
+"""
+def handleBumperG():
+    global current_state
 
-prevButton = False
-def checkBumperG():
-    global prevButton
-    retVal = False
-    currButton = front_bumper.pressing()
-    if(currButton and not prevButton):
-        retVal = True
-    prevButton = currButton
-    return retVal
+    ## Todo: Add code to handle the bumper being presses
+    if(bumper.pressing()):
+        print(str(current_state) + ' -> FORWARD')
+        current_state = DRIVING_FWD
+        left_motor.spin_for(FORWARD, t/2, TURNS, s, RPM, wait = False)
+        right_motor.spin_for(FORWARD, t/2, TURNS, s, RPM, wait = False)
+    else:
+        pass
 
-#def handleBumperG():
-    #global current_state
-    #if(current_state == (DRIVING_FWD or IDLE)):
-        #current_state = DRIVING_BKWD
-        #right_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
-        #left_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
 
-# Here, we give an example of a proper event checker. It checks for the _event_
+# Here, we give an example of a proper event checker. It checks for the _event_ 
 # of stopping (not just if the robot is stopped).
 wasMoving = False
 def checkMotionComplete():
     global wasMoving
+
     retVal = False
+
     isMoving = left_motor.is_spinning() or right_motor.is_spinning()
-    if(((wasMoving and not isMoving) or checkBumperG()) or ((wasMoving and not isMoving) and (checkBumperG()))):
+
+    if(wasMoving and not isMoving):
         retVal = True
+
     wasMoving = isMoving
     return retVal
 
 # Then we declare a handler for the completion of the motion.
 def handleMotionComplete():
     global current_state
+
     if(current_state == DRIVING_FWD):
         print('FORWARD -> BACKWARD')
         current_state = DRIVING_BKWD
-        left_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
-        right_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
+
+         ## TODO: You'll need to update the speed and number of turns       
+        left_motor.spin_for(FORWARD, t, TURNS, s, RPM, wait = False)
+        right_motor.spin_for(FORWARD, t, TURNS, s, RPM, wait = False)
+    
     elif(current_state == DRIVING_BKWD):
         print('BACKWARD -> IDLE')
         current_state = IDLE
+
     else:
         print('E-stop') # Should print when button is used as E-stop
 
+
 ## TODO: Add a checker for the reflectance sensor
-
-def inRange():
-    retVal = False
-    position = float(line_tracker.reflectivity.replace("%",""))
-    if position < 70:
-        retval = True
-    return retval
-
-wasInRange = False
-def checkNearReflector():
-    global wasInRange
-    global range_state
-    range_state = OUTOFRANGE
-    isInRange = inRange()
-    if(not wasInRange and isInRange):
-        range_state = ENTERRANGE 
-    elif(wasInRange and not inRange()):
-        range_state = EXITRANGE
-    else:
-        pass
-
-def handleNearReflector():
-    global range_state
-    global current_state
-    if(range_state == ENTERRANGE):
-        #current_state = DRIVING_BKWD
-        left_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
-        right_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
-    elif(range_state == EXITRANGE):
-        #current_state = IDLE
-        left_motor.stop()
-        right_motor.stop()
-    else:
-        pass
-
-
 ## See checkMotionComplete() for a good example
+wasReflecting = False
+def checkReflectance():
+    global wasReflecting
+    global pressed
+
+    retVal = False
+
+    isReflecting = (100 < reflectance.value() < 2880)
+    if (isReflecting and not wasReflecting and pressed == True):
+        
+        retVal = True
+
+
+    wasReflecting = isReflecting
+
+    return retVal
+
+
 ## TODO: Add a handler for when the reflectance sensor triggers
+def handleReflectance():
+    global current_state
+    print(current_state)
+    if(current_state == DRIVING_FWD):
+        print('FORWARD -> BACKWARD')
+        current_state = DRIVING_BKWD
+
+        left_motor.spin_for(FORWARD, t/6, TURNS, s, RPM, wait = False)
+        right_motor.spin_for(FORWARD, t/6, TURNS, s, RPM, wait = False)
+    elif(current_state == DRIVING_BKWD):
+        print('BACKWARD -> IDLE')
+        current_state = IDLE
+    elif(current_state == IDLE):
+        print('IDLE -> BACKWARD')
+        current_state = DRIVING_BKWD
+
+        left_motor.spin_for(FORWARD, t/4, TURNS, s, RPM, wait = False)
+        right_motor.spin_for(FORWARD, t/4, TURNS, s, RPM, wait = False) 
+    else:
+        print('Reflectance Sensor not sensing')       
+
+def printDistance():
+    d = rangefinder.distance(MM)
+    brain.screen.print(d)
+    brain.screen.next_row()
+    wait(20, TimeUnits.MSEC)
 """
-The line below makes use of VEX's built-in event management. Basically, we set up a
-"callback",
-basically, a function that gets called whenever the button is pressed (there's a
-corresponding
-one for released). Whenever the button is pressed, the handleButton function will
-get called,
+The line below makes use of VEX's built-in event management. Basically, we set up a "callback", 
+basically, a function that gets called whenever the button is pressed (there's a corresponding
+one for released). Whenever the button is pressed, the handleButton function will get called,
 _without you having to do anything else_.
+
 """
 controller.buttonL1.pressed(handleLeft1Button)
-#front_bumper.pressed(handleBumperG)
+
+## TODO: Add event callback for bumper
+bumper.pressed(handleBumperG)
+
 """
-Note that the main loop only checks for the completed motion. The button press is
-handled by
+Note that the main loop only checks for the completed motion. The button press is handled by 
 the VEX event system.
 """
 # The main loop
 while True:
-    if (checkMotionComplete()): handleMotionComplete()
-    checkNearReflector()  
-    handleNearReflector()  
-
+    if(checkMotionComplete()): handleMotionComplete()
+    if(checkReflectance()):handleReflectance()
+    printDistance()
 ## TODO: Add various checkers/handlers; print ultrasonice; etc. See handout.
