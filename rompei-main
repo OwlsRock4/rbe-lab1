@@ -1,7 +1,7 @@
 # ---------------------------------------------------------------------------- #
 #                                                                              #
 # 	Module:       main.py                                                      #
-# 	Author:       slafl                                                        #
+# 	Author:                                                               #
 # 	Created:      1/17/2025, 5:02:42 PM                                        #
 # 	Description:  V5 project                                                   #
 #                                                                              #
@@ -25,6 +25,7 @@ brain=Brain()
 # Motors
 left_motor = Motor(Ports.PORT1, GearSetting.RATIO_18_1, True)
 right_motor = Motor(Ports.PORT10, GearSetting.RATIO_18_1, False)
+arm = Motor(Ports.PORT8, GearSetting.RATIO_18_1, False)
 
 # Controller
 controller = Controller()
@@ -64,7 +65,7 @@ def checkMotionComplete():
     global wasMoving
     retVal = False
     isMoving = left_motor.is_spinning() or right_motor.is_spinning()
-    if(((wasMoving and not isMoving) or checkBumperG()) or ((wasMoving and not isMoving) and (checkBumperG()))):
+    if(wasMoving and not isMoving):
         retVal = True
     wasMoving = isMoving
     return retVal
@@ -73,12 +74,14 @@ def checkMotionComplete():
 def handleMotionComplete():
     global current_state
     if(current_state == DRIVING_FWD):
-        print('FORWARD -> BACKWARD')
+        left_motor.stop()
+        right_motor.stop()
+        # Untested
+        arm.spin_for(FORWARD, t/4, TURNS, s/2, RPM, wait = True)
         current_state = DRIVING_BKWD
         left_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
         right_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
     elif(current_state == DRIVING_BKWD):
-        print('BACKWARD -> IDLE')
         current_state = IDLE
     else:
         print('E-stop') # Should print when button is used as E-stop
