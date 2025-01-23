@@ -15,13 +15,9 @@ from vex import *
 IDLE = 0
 DRIVING_FWD = 1
 DRIVING_BKWD = 2
-#reflectivity states
-OUTOFRANGE = 0
-ENTERRANGE = 1
-EXITRANGE = 2
+
 # start out in the idle state
 current_state = IDLE
-range_state = OUTOFRANGE
 
 # Define the brain
 brain=Brain()
@@ -32,20 +28,19 @@ right_motor = Motor(Ports.PORT10, GearSetting.RATIO_18_1, False)
 
 # Controller
 controller = Controller()
-# Bumper
-front_bumper = Bumper(brain.three_wire_port.a)
-
-# Reflectance
-line_tracker = Line(brain.three_wire_port.b)
 
 # Rangefinder
 range_finder = Sonar(brain.three_wire_port.c)
 """
 Pro-tip: print out state _transistions_.
 """
+# Distance in cm
+distance = 100
+# Speed in cm/s
+speed = 10
 c = math.pi * 2 * 5
-t = 500 / c 
-s = (60 * 10 * 5) / c
+t = (5 * distance) / c 
+s = (60 * speed * 5) / c
 
 def handleLeft1Button():
     global current_state
@@ -63,22 +58,7 @@ def handleLeft1Button():
         current_state = IDLE
         left_motor.stop()
         right_motor.stop()
-"""
-Pro-tip: print out state _transistions_.
-""" 
 
-prevButton = False
-def checkBumperG():
-    global prevButton
-    retVal = False
-    currButton = front_bumper.pressing()
-    if(currButton and not prevButton):
-        retVal = True
-    prevButton = currButton
-    return retVal
-
-# Here, we give an example of a proper event checker. It checks for the _event_
-# of stopping (not just if the robot is stopped).
 wasMoving = False
 def checkMotionComplete():
     global wasMoving
@@ -103,64 +83,15 @@ def handleMotionComplete():
     else:
         print('E-stop') # Should print when button is used as E-stop
 
-def inRange():
-    retVal = False
-    position = line_tracker.value()
-    if (100 < position < 2880):
-        retVal = True
-    return retVal
-
-wasInRange = False
-def checkNearReflector():
-    global wasInRange
-    global range_state
-    range_state = OUTOFRANGE
-    isInRange = inRange()
-    if(not wasInRange and isInRange):
-        range_state = ENTERRANGE 
-    elif(wasInRange and not inRange()):
-        range_state = EXITRANGE
-    else:
-        pass
-
-def handleNearReflector():
-    global range_state
-    global current_state
-    if(range_state == ENTERRANGE):
-        current_state = DRIVING_BKWD
-        left_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
-        right_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
-    elif(range_state == EXITRANGE):
-        current_state = IDLE
-        left_motor.stop()
-        right_motor.stop()
-    else:
-        pass
 def printDistance():
     d = range_finder.distance(MM)
     brain.screen.print(d)
     brain.screen.next_row()
     wait(20, TimeUnits.MSEC)
 
-## See checkMotionComplete() for a good example
-"""
-The line below makes use of VEX's built-in event management. Basically, we set up a
-"callback",
-basically, a function that gets called whenever the button is pressed (there's a
-corresponding
-one for released). Whenever the button is pressed, the handleButton function will
-get called,
-_without you having to do anything else_.
-"""
 controller.buttonL1.pressed(handleLeft1Button)
-"""
-Note that the main loop only checks for the completed motion. The button press is
-handled by
-the VEX event system.
-"""
+
 # The main loop
 while True:
     if (checkMotionComplete()): handleMotionComplete()
-    checkNearReflector()  
-    handleNearReflector()  
     printDistance()
