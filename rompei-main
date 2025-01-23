@@ -1,7 +1,7 @@
 # ---------------------------------------------------------------------------- #
 #                                                                              #
 # 	Module:       main.py                                                      #
-# 	Author:                                                               #
+# 	Author:       slafl                                                        #
 # 	Created:      1/17/2025, 5:02:42 PM                                        #
 # 	Description:  V5 project                                                   #
 #                                                                              #
@@ -30,21 +30,24 @@ arm = Motor(Ports.PORT8, GearSetting.RATIO_18_1, False)
 # Controller
 controller = Controller()
 
-# Rangefinder
-range_finder = Sonar(brain.three_wire_port.c)
 """
 Pro-tip: print out state _transistions_.
 """
 # Distance in cm
-distance = 100
+distance = 50
 # Speed in cm/s
 speed = 10
 c = math.pi * 2 * 5
 t = (5 * distance) / c 
 s = (60 * speed * 5) / c
 
+startAngle = 381.6
+endAngle = 443.6
+
 def handleLeft1Button():
     global current_state
+    arm.set_position(0, DEGREES)
+    arm.spin_for(FORWARD, startAngle, DEGREES, s, RPM, wait = True)
     if(current_state == IDLE):
         print('IDLE -> FORWARD')
         current_state = DRIVING_FWD
@@ -52,8 +55,8 @@ def handleLeft1Button():
         # No need to call over and over and over in a loop.
         # Also, note that we call the non-blocking version so we can
         # return to the main loop.
-        left_motor.spin_for(FORWARD, t, TURNS, s, RPM, wait = False)
-        right_motor.spin_for(FORWARD, t, TURNS, s, RPM, wait = False)
+        left_motor.spin_for(REVERSE, t, TURNS, s, RPM, wait = False)
+        right_motor.spin_for(REVERSE, t, TURNS, s, RPM, wait = False)
     else: # in any other state, the button acts as a kill switch
         print(' -> IDLE')
         current_state = IDLE
@@ -77,24 +80,15 @@ def handleMotionComplete():
         left_motor.stop()
         right_motor.stop()
         # Untested
-        arm.spin_for(FORWARD, t/4, TURNS, s/2, RPM, wait = True)
-        current_state = DRIVING_BKWD
-        left_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
-        right_motor.spin_for(REVERSE, t/2, TURNS, s, RPM, wait = False)
+        arm.spin_for(FORWARD, endAngle-startAngle, DEGREES, s, RPM, wait = True)
+        brain.screen.print(arm.torque())
     elif(current_state == DRIVING_BKWD):
         current_state = IDLE
     else:
         print('E-stop') # Should print when button is used as E-stop
-
-def printDistance():
-    d = range_finder.distance(MM)
-    brain.screen.print(d)
-    brain.screen.next_row()
-    wait(20, TimeUnits.MSEC)
 
 controller.buttonL1.pressed(handleLeft1Button)
 
 # The main loop
 while True:
     if (checkMotionComplete()): handleMotionComplete()
-    printDistance()
