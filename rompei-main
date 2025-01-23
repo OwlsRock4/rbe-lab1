@@ -30,11 +30,8 @@ arm = Motor(Ports.PORT8, GearSetting.RATIO_18_1, False)
 # Controller
 controller = Controller()
 
-"""
-Pro-tip: print out state _transistions_.
-"""
 # Distance in cm
-distance = 50
+distance = 100
 # Speed in cm/s
 speed = 10
 c = math.pi * 2 * 5
@@ -80,8 +77,18 @@ def handleMotionComplete():
         left_motor.stop()
         right_motor.stop()
         # Untested
-        arm.spin_for(FORWARD, endAngle-startAngle, DEGREES, s, RPM, wait = True)
-        brain.screen.print(arm.torque())
+        previousT = 0
+        arm.spin_for(FORWARD, endAngle-startAngle, DEGREES, s, RPM, wait = False)
+        while True: 
+            if(arm.torque() > previousT):
+                brain.screen.print(arm.torque())
+                brain.screen.new_line()
+            else:
+                brain.screen.print(previousT)
+                brain.screen.new_line()
+            previousT = arm.torque()
+            wait(50)
+
     elif(current_state == DRIVING_BKWD):
         current_state = IDLE
     else:
